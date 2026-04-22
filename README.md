@@ -76,6 +76,30 @@ Custom layers (`PrunableLinear`, `PrunableConv2d`) were implemented where:
 - A threshold (e.g., \(10^{-2}\)) is used to define pruned weights  
 
 ---
+## 📌 Required Analysis
+
+### 🔹 Why L1 Penalty Encourages Sparsity
+
+We optimize:
+
+\[
+\text{Loss} = \text{CrossEntropy} + \lambda \sum_i g_i
+\]
+
+- The term \( \sum g_i \) penalizes **all active gates**
+- Minimizing it pushes gates **toward zero**
+- However, reducing all gates harms accuracy
+
+👉 The model learns a balance:
+
+- Keep **important gates high**
+- Push **unimportant gates toward zero**
+
+**Key detail:**  
+Sigmoid outputs lie in (0,1), so gates don’t reach exact zero.  
+We apply a threshold (e.g., \(10^{-2}\)) to define sparsity.
+
+---
 
 ### 🔹 Training Strategy
 
