@@ -6,24 +6,46 @@
 
 ---
 
-## 🚀 Project Overview
+## 🚀 What is this project about?
 
-Modern neural networks are highly overparameterized, making them inefficient for real-world deployment.
+Modern neural networks are **very large and overparameterized**, meaning they contain far more weights than actually needed.
 
-This project implements a **Self-Pruning Neural Network** that learns to remove its own unnecessary connections during training using **learnable gates and L1 regularization**.
+This creates problems:
+- High memory usage 📦  
+- Slow inference ⚡  
+- Difficult deployment on edge devices 📱  
 
-Instead of pruning after training, the network:
-- Starts dense  
-- Learns important connections  
-- Gradually becomes sparse  
+---
+
+### 💡 Solution: Let the network prune itself
+
+Instead of manually removing weights **after training**, we design a system where:
+
+> The network **learns during training which connections are unnecessary** and removes them automatically.
+
+This is called a **Self-Pruning Neural Network**.
+
+---
+
+## 🧩 Core Idea (Intuition First)
+
+Every connection (weight) in the network gets a **gate**:
+
+- Gate ≈ 1 → keep the connection  
+- Gate ≈ 0 → remove the connection  
+
+So the model learns:
+> “Which weights actually matter?”
 
 ---
 
 ## ⚙️ Technical Implementation
 
-### 🔹 Prunable Layer
+---
 
-Each weight \( W \) is paired with a learnable gate:
+### 🔹 1. Prunable Layer
+
+Each weight \( W \) is paired with a learnable parameter \( S \):
 
 \[
 g = \sigma(S)
@@ -33,38 +55,92 @@ g = \sigma(S)
 W_{pruned} = W \cdot g
 \]
 
+Where:
+- \( \sigma \) = sigmoid function  
 - \( g \in (0,1) \)
-- \( g \to 0 \) → connection removed  
-- \( g \to 1 \) → connection preserved  
 
 ---
 
-### 🔹 Loss Function
+### 🧠 Why use sigmoid?
+
+- Smooth and differentiable  
+- Allows gradient-based learning  
+- Keeps values between 0 and 1  
+
+---
+
+### 🔹 2. Loss Function (Very Important)
+
+We modify the standard loss:
 
 \[
-\text{Total Loss} = \text{CrossEntropy} + \lambda \cdot \text{Sparsity Loss}
+\text{Total Loss} = \text{Classification Loss} + \lambda \cdot \text{Sparsity Loss}
 \]
 
 ---
 
-### 🔹 Sparsity Loss
+### 🔹 3. Classification Loss
+
+- Standard **CrossEntropy Loss**
+- Ensures the model learns the task (image classification)
+
+---
+
+### 🔹 4. Sparsity Loss
 
 \[
 \text{Sparsity Loss} = \sum g_i
 \]
 
-- L1 penalty encourages gates to move **toward zero**
-- A threshold \(10^{-2}\) is used to define pruned connections
+---
+
+### 🧠 Why this works
+
+- This is an **L1 penalty on gates**
+- It pushes gate values **towards zero**
 
 ---
 
-### 🔹 Training Strategy
+### ⚠️ Important detail
 
-- **Warm-up (first 3 epochs):** no pruning  
-- **Annealing:** gradually increase λ  
-- **Separate learning rates:**
-  - Weights → 0.001  
-  - Gates → 0.01  
+Sigmoid never gives exact zero.
+
+So:
+- During training → values approach 0  
+- During evaluation → we apply threshold (e.g., \(10^{-2}\))  
+
+👉 This gives **effective sparsity**
+
+---
+
+## 🔄 Training Strategy
+
+To avoid destroying learning early, we use:
+
+---
+
+### 🔹 Warm-up Phase
+
+- First few epochs → **no sparsity penalty**
+- Model learns basic features
+
+---
+
+### 🔹 Lambda Annealing
+
+We gradually increase λ:
+
+- Early training → focus on accuracy  
+- Later training → focus on pruning  
+
+---
+
+### 🔹 Different Learning Rates
+
+- Weights → slow learning (0.001)  
+- Gates → fast learning (0.01)  
+
+👉 This helps gates quickly adapt
 
 ---
 
@@ -78,29 +154,45 @@ W_{pruned} = W \cdot g
 
 ---
 
-### 🔍 Observations
+## 🔍 What do these results mean?
 
-- Increasing λ → higher sparsity  
-- Moderate λ gives best performance  
-- ~90% weights can be removed with minimal accuracy loss  
+- Increasing λ → more pruning  
+- Moderate λ → best balance  
+- Very high sparsity → still works well  
 
----
-
-## ✅ Validation of Learned Sparsity
-
-To verify pruning is meaningful:
-
-- **Hard pruning:** accuracy ≈ 56% (no loss)  
-- **Random pruning:** accuracy ≈ 10%  
-
-👉 This confirms:
-> The model learned **structured and meaningful sparsity**, not random weight removal.
+👉 The model removes **~90% weights** without losing accuracy
 
 ---
 
-## 🔬 Extension: Prunable CNN
+## ✅ Validation: Is pruning actually meaningful?
 
-The same approach was applied to a CNN.
+We tested two scenarios:
+
+### 🔹 Hard Pruning
+- Removed all low-gate weights
+- Accuracy stayed ~56%
+
+---
+
+### 🔹 Random Pruning
+- Removed same number of weights randomly
+- Accuracy dropped to ~10%
+
+---
+
+### 🧠 Conclusion
+
+> The model learned **which weights matter**, not just removing randomly.
+
+---
+
+## 🔬 Extension: CNN Version
+
+We applied the same idea to a **Convolutional Neural Network (CNN)**.
+
+---
+
+### 📊 CNN Results
 
 | Lambda (λ) | Accuracy (%) | Sparsity (%) |
 |-----------|-------------|-------------|
@@ -109,45 +201,55 @@ The same approach was applied to a CNN.
 
 ---
 
-### 🧠 Key Insight
+## 🧠 Key Insight
 
-- CNN → higher accuracy (~73%)  
-- MLP → higher sparsity (~90%)  
+- CNN → higher accuracy  
+- MLP → higher sparsity  
 
-👉 CNNs are more efficient due to **spatial feature sharing**, leading to less redundancy.
+---
+
+### 💡 Why?
+
+CNNs:
+- reuse weights across space  
+- already efficient  
+
+MLPs:
+- fully connected  
+- more redundancy  
 
 ---
 
 ## 📈 Gate Distribution
 
-The learned gate values show:
+After training:
 
-- Large spike near **0** → pruned weights  
-- Cluster away from 0 → important weights  
+- Many gates near **0** → pruned  
+- Some gates near **1** → important  
 
-👉 This confirms successful separation of useful vs redundant connections.
+👉 This creates a **bimodal distribution**
 
 ---
 
 ## 🏆 Key Takeaways
 
-- Neural networks contain significant redundancy  
+- Neural networks are highly redundant  
 - L1 regularization effectively induces sparsity  
-- Moderate pruning can improve generalization  
-- CNNs are more robust but less aggressively prunable  
+- Moderate pruning improves generalization  
+- CNNs are more efficient but less prunable  
 
 ---
 
-## 📌 Conclusion
+## 📌 Final Conclusion
 
-This project demonstrates that:
+This project shows that:
 
-- Networks can **self-prune during training**  
-- Up to **90% of weights can be removed**  
-- Performance can be maintained  
+- Networks can **self-optimize their structure**
+- Up to **90% of parameters can be removed**
+- Performance can still be maintained  
 
 ---
 
-## ⚡ Final Statement
+## ⚡ Final Thought
 
-> Neural networks can learn not only how to perform tasks, but also how to optimize their own structure by eliminating unnecessary parameters.
+> Neural networks can learn not just *how to predict*, but also *how to simplify themselves*.
