@@ -33,13 +33,9 @@ Instead of pruning after training, the network:
 
 Each weight is paired with a learnable **gate**:
 
-\[
-g = \sigma(S)
-\]
+\[g = \sigma(S)\]
 
-\[
-W_{pruned} = W \cdot g
-\]
+\[W_{pruned} = W \cdot g\]
 
 - \( g \approx 1 \) → important connection  
 - \( g \approx 0 \) → pruned connection  
@@ -60,17 +56,13 @@ Custom layers (`PrunableLinear`, `PrunableConv2d`) were implemented where:
 
 ### 🔹 Loss Function
 
-\[
-\text{Total Loss} = \text{CrossEntropy} + \lambda \cdot \text{Sparsity Loss}
-\]
+\[\text{Total Loss} = \text{CrossEntropy} + \lambda \cdot \text{Sparsity Loss}\]
 
 ---
 
 ### 🔹 Sparsity Loss
 
-\[
-\text{Sparsity Loss} = \sum g_i
-\]
+\[\text{Sparsity Loss} = \sum g_i\]
 
 - L1 penalty encourages gates to move **towards zero**  
 - A threshold (e.g., \(10^{-2}\)) is used to define pruned weights  
@@ -82,9 +74,7 @@ Custom layers (`PrunableLinear`, `PrunableConv2d`) were implemented where:
 
 We optimize:
 
-\[
-\text{Loss} = \text{CrossEntropy} + \lambda \sum_i g_i
-\]
+\[\text{Loss} = \text{CrossEntropy} + \lambda \sum_i g_i\]
 
 - The term \( \sum g_i \) penalizes **all active gates**
 - Minimizing it pushes gates **toward zero**
